@@ -75,8 +75,24 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 		return event
 	})
 
-	title := fmt.Sprintf("%s %s", newRoot.fullName, toHumanReadableSize(newRoot.size))
-	list.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignLeft)
+	title := fmt.Sprintf(" %s %s ", newRoot.fullName, toHumanReadableSize(newRoot.size))
+	list.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignLeft).SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+		help := ""
+		appendHelp := func(keys string, text string) {
+			help += fmt.Sprintf(" [blue]%s [white]%s ", keys, text)
+		}
+
+		appendHelp("q", "Quit")
+		appendHelp("↑/↓", "Select file")
+		appendHelp("→/Enter", "Enter directory")
+		appendHelp("←/Escape", "Exit directory")
+		appendHelp("Ctrl-l", "Copy Current Path to Clipboard")
+
+		tview.Print(screen, help, x+1, y+height-1, width-2, tview.AlignLeft, tcell.ColorWhite)
+
+		// Space for inner content
+		return x + 1, y + 1, width - 2, height - 2
+	})
 
 	return list
 }
