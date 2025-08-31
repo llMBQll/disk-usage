@@ -5,16 +5,7 @@ import (
 	"log"
 	"math"
 	"os"
-	"slices"
-	"strings"
-	"unicode/utf8"
-
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
 )
-
-var currentRoot *Entry = nil
-var currentIndex = 0
 
 func main() {
 	dirname, err := parseInput()
@@ -30,115 +21,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app := tview.NewApplication()
-
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'q':
-			app.Stop()
-			return nil
-		}
-		return event
-	})
-
-	setList(app, &topLevel)
+	app := newApplication(&topLevel)
 
 	if err := app.Run(); err != nil {
 		panic(err)
-	}
-}
-
-func setList(app *tview.Application, topLevel *Entry) {
-	list := tview.NewList()
-
-	slices.SortFunc(topLevel.children, func(lhs Entry, rhs Entry) int {
-		if lhs.size < rhs.size {
-			return 1
-		} else if lhs.size == rhs.size {
-			if lhs.err != nil && rhs.err == nil {
-				return 1
-			} else if lhs.err == nil && rhs.err != nil {
-				return -1
-			}
-			return strings.Compare(lhs.name, rhs.name)
-		} else {
-			return -1
-		}
-	})
-
-	var maxLen = 0
-	for _, entry := range topLevel.children {
-		maxLen = max(maxLen, utf8.RuneCountInString(entry.name))
-	}
-
-	list.Clear()
-	for _, entry := range topLevel.children {
-		nameLen := utf8.RuneCountInString(entry.name)
-		padding := strings.Repeat(" ", maxLen-nameLen)
-		size := toHumanReadableSize(entry.size)
-
-		pushFormat := "[::b"
-		popFormat := "[::B"
-		if entry.isDirectory {
-			pushFormat += "u"
-			popFormat += "U"
-		}
-		pushFormat += "]"
-		popFormat += "]"
-
-		text := fmt.Sprintf("%s%s%s%s %s", pushFormat, entry.name, popFormat, padding, size)
-
-		list.AddItem(text, size, 0, nil)
-	}
-	list.ShowSecondaryText(false)
-
-	currentRoot = topLevel
-
-	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
-		currentIndex = index
-	})
-
-	list.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
-		tryPushRoot(app, index)
-	})
-
-	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyLeft:
-			tryPopRoot(app)
-			return nil
-		case tcell.KeyRight:
-			tryPushRoot(app, currentIndex)
-			return nil
-		}
-		return event
-	})
-
-	list.SetBorder(true).SetTitle(topLevel.fullName).SetTitleAlign(tview.AlignLeft)
-	if len(currentRoot.children) > 0 {
-		list.SetCurrentItem(0)
-		currentIndex = 0
-	}
-
-	app.SetRoot(list, true)
-}
-
-func tryPushRoot(app *tview.Application, index int) {
-	if index >= len(currentRoot.children) {
-		return
-	}
-
-	if !currentRoot.children[index].isDirectory {
-		return
-	}
-
-	currentRoot = &currentRoot.children[index]
-	setList(app, currentRoot)
-}
-
-func tryPopRoot(app *tview.Application) {
-	if currentRoot.parent != nil {
-		setList(app, currentRoot.parent)
 	}
 }
 

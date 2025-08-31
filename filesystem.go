@@ -7,13 +7,14 @@ import (
 )
 
 type Entry struct {
-	isDirectory bool
-	children    []Entry
-	parent      *Entry
-	size        uint64
-	name        string
-	fullName    string
-	err         error
+	isDirectory    bool
+	children       []Entry
+	childrenSorted bool
+	parent         *Entry
+	size           uint64
+	name           string
+	fullName       string
+	err            error
 }
 
 func getDirSize(directory string) (Entry, error) {
