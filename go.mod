@@ -1,4 +1,4 @@
-module disk-visualizer
+module disk-usage
 
 go 1.25.0
 

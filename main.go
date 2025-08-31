@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		fmt.Println()
-		fmt.Println("Usage: disk-visualizer [PATH]")
+		fmt.Println("Usage: disk-usage [PATH]")
 		os.Exit(1)
 	}
 
