@@ -27,6 +27,11 @@ func main() {
 		if lhs.size < rhs.size {
 			return 1
 		} else if lhs.size == rhs.size {
+			if lhs.err != nil && rhs.err == nil {
+				return 1
+			} else if lhs.err == nil && rhs.err != nil {
+				return -1
+			}
 			return strings.Compare(lhs.name, rhs.name)
 		} else {
 			return -1
@@ -35,7 +40,11 @@ func main() {
 
 	fmt.Printf("%s: %d\n", entry.name, entry.size)
 	for _, child := range entry.children {
-		fmt.Printf("  %s: %d\n", child.name, child.size)
+		fmt.Printf("  %s: %d", child.name, child.size)
+		if child.err != nil {
+			fmt.Printf(" - %v", child.err)
+		}
+		fmt.Printf("\n")
 	}
 }
 
@@ -57,6 +66,7 @@ type Entry struct {
 	size        uint64
 	name        string
 	fullName    string
+	err         error
 }
 
 func getDirSize(directory string) (Entry, error) {
@@ -97,14 +107,17 @@ func getSubDirSize(parent *Entry) error {
 			child.isDirectory = true
 			err = getSubDirSize(&child)
 			if err != nil {
-				return err
+				log.Print(err)
+				child.err = err
 			}
 		} else {
 			info, err := entry.Info()
 			if err != nil {
-				return err
+				log.Print(err)
+				child.err = err
+			} else {
+				child.size = uint64(info.Size())
 			}
-			child.size = uint64(info.Size())
 		}
 
 		parent.children = append(parent.children, child)
