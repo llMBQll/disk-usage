@@ -48,6 +48,11 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 
 	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		currentIndex = index
+
+		entry := &currentRoot.children[currentIndex]
+		if entry.err != nil {
+			// TODO show notification
+		}
 	})
 
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -64,7 +69,7 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 			return nil
 		case tcell.KeyCtrlL:
 			clipboard.Write(clipboard.FmtText, []byte(currentRoot.fullName))
-			// TODO show notification?
+			// TODO show notification
 			return nil
 		}
 		return event
@@ -103,14 +108,25 @@ func addListEntry(list *tview.List, entry *Entry, fieldLenght int) {
 	padding := strings.Repeat(" ", fieldLenght-nameLen)
 	size := toHumanReadableSize(entry.size)
 
-	pushFormat := "[::b"
-	popFormat := "[::B"
-	if entry.isDirectory {
-		pushFormat += "u"
-		popFormat += "U"
+	pushForeground := ""
+	popForeground := ""
+	pushBackground := ""
+	popBackground := ""
+	pushAttributes := "b"
+	popAttributes := "B"
+
+	if entry.err != nil {
+		pushForeground = "red"
+		popForeground = "white"
 	}
-	pushFormat += "]"
-	popFormat += "]"
+
+	if entry.isDirectory {
+		pushAttributes += "u"
+		popAttributes += "U"
+	}
+
+	pushFormat := fmt.Sprintf("[%s:%s:%s]", pushForeground, pushBackground, pushAttributes)
+	popFormat := fmt.Sprintf("[%s:%s:%s]", popForeground, popBackground, popAttributes)
 
 	text := fmt.Sprintf("%s%s%s%s %s", pushFormat, entry.name, popFormat, padding, size)
 
