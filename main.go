@@ -45,7 +45,7 @@ func toHumanReadableSize(bytes uint64) string {
 		whole := bytes / current
 		fractional := uint64(math.Floor(float64(bytes-whole*current) / float64(current) * 10))
 
-		return fmt.Sprintf("%d.%d %s (%d)", whole, fractional, suffixes[index], bytes)
+		return fmt.Sprintf("%d.%d %s", whole, fractional, suffixes[index])
 	}
 }
 
