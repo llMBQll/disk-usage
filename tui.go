@@ -50,16 +50,16 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 		currentIndex = index
 	})
 
-	list.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
-		tryPushRoot(app, index)
-	})
-
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyLeft:
+			fallthrough
+		case tcell.KeyEscape:
 			tryPopRoot(app)
 			return nil
 		case tcell.KeyRight:
+			fallthrough
+		case tcell.KeyEnter:
 			tryPushRoot(app, currentIndex)
 			return nil
 		case tcell.KeyCtrlL:
@@ -128,7 +128,7 @@ func tryPushRoot(app *tview.Application, index int) {
 
 	previousIndices = append(previousIndices, index)
 	newRoot := &currentRoot.children[index]
-	setNewState(app, newRoot, index)
+	setNewState(app, newRoot, 0)
 }
 
 func tryPopRoot(app *tview.Application) {
