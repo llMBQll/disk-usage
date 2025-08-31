@@ -5,6 +5,8 @@ import (
 	"log"
 	"math"
 	"os"
+
+	"golang.design/x/clipboard"
 )
 
 func main() {
@@ -14,6 +16,10 @@ func main() {
 		fmt.Println()
 		fmt.Println("Usage: disk-visualizer [PATH]")
 		os.Exit(1)
+	}
+
+	if err = clipboard.Init(); err != nil {
+		log.Fatalf("failed to init clipboard: %v", err)
 	}
 
 	topLevel, err := getDirSize(dirname)

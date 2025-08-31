@@ -8,6 +8,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"golang.design/x/clipboard"
 )
 
 var currentRoot *Entry = nil
@@ -60,11 +62,16 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 		case tcell.KeyRight:
 			tryPushRoot(app, currentIndex)
 			return nil
+		case tcell.KeyCtrlL:
+			clipboard.Write(clipboard.FmtText, []byte(currentRoot.fullName))
+			// TODO show notification?
+			return nil
 		}
 		return event
 	})
 
-	list.SetBorder(true).SetTitle(newRoot.fullName).SetTitleAlign(tview.AlignLeft)
+	title := fmt.Sprintf("%s %s", newRoot.fullName, toHumanReadableSize(newRoot.size))
+	list.SetBorder(true).SetTitle(title).SetTitleAlign(tview.AlignLeft)
 
 	return list
 }
