@@ -9,6 +9,7 @@ import (
 type Entry struct {
 	isDirectory bool
 	children    []Entry
+	parent      *Entry
 	size        uint64
 	name        string
 	fullName    string
@@ -18,6 +19,7 @@ type Entry struct {
 func getDirSize(directory string) (Entry, error) {
 	entry := Entry{}
 	entry.isDirectory = true
+	entry.parent = nil
 
 	fullName, err := filepath.Abs(directory)
 	if err != nil {
@@ -44,6 +46,7 @@ func getSubDirSize(parent *Entry) error {
 		child := Entry{
 			isDirectory: false,
 			children:    []Entry{},
+			parent:      parent,
 			size:        0,
 			name:        entryName,
 			fullName:    fullEntryName,
