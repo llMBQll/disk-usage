@@ -16,8 +16,11 @@ import (
 var currentRoot *Entry = nil
 var currentIndex = 0
 var previousIndices []int = []int{}
+var toByteRepresentation func(uint64) string
 
-func newApplication(root *Entry) *tview.Application {
+func newApplication(root *Entry, representation Representation) *tview.Application {
+	toByteRepresentation = makeToByteRepresentationFunc(representation)
+
 	app := tview.NewApplication()
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -76,7 +79,7 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 		return event
 	})
 
-	title := fmt.Sprintf(" %s %s ", newRoot.fullName, toHumanReadableSize(newRoot.size))
+	title := fmt.Sprintf(" %s %s ", newRoot.fullName, toByteRepresentation(newRoot.size))
 	draw := func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
 		help := ""
 		appendHelp := func(keys string, text string) {
@@ -124,7 +127,7 @@ func sortChildren(parent *Entry) {
 func addListEntry(list *tview.List, entry *Entry, fieldLenght int) {
 	nameLen := utf8.RuneCountInString(entry.name)
 	padding := strings.Repeat(" ", fieldLenght-nameLen)
-	size := toHumanReadableSize(entry.size)
+	size := toByteRepresentation(entry.size)
 
 	pushForeground := ""
 	popForeground := ""
@@ -188,23 +191,36 @@ func setNewState(app *tview.Application, newRoot *Entry, newIndex int) {
 	}
 }
 
-func toHumanReadableSize(bytes uint64) string {
-	const step uint64 = 1024 // TODO handle both decimal and IEC suffixes
-	suffixes := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}
+func makeToByteRepresentationFunc(repr Representation) func(uint64) string {
+	var step uint64
+	var suffixes []string
 
-	index := 0
-	current := uint64(1)
-	for current*step < bytes {
-		current *= step
-		index += 1
+	switch repr {
+	case Bytes:
+		return func(bytes uint64) string { return fmt.Sprintf("%d", bytes) }
+	case IEC:
+		step = 1024
+		suffixes = []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}
+	case SI:
+		step = 1000
+		suffixes = []string{"B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
 	}
 
-	if index == 0 {
-		return fmt.Sprintf("%d %s", bytes, suffixes[index])
-	} else {
-		whole := bytes / current
-		fractional := uint64(math.Floor(float64(bytes-whole*current) / float64(current) * 10))
+	return func(bytes uint64) string {
+		index := 0
+		current := uint64(1)
+		for current*step < bytes {
+			current *= step
+			index += 1
+		}
 
-		return fmt.Sprintf("%d.%d %s", whole, fractional, suffixes[index])
+		if index == 0 {
+			return fmt.Sprintf("%d %s", bytes, suffixes[index])
+		} else {
+			whole := bytes / current
+			fractional := uint64(math.Floor(float64(bytes-whole*current) / float64(current) * 10))
+
+			return fmt.Sprintf("%d.%d %s", whole, fractional, suffixes[index])
+		}
 	}
 }

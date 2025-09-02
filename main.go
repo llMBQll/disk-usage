@@ -6,41 +6,55 @@ import (
 	"os"
 
 	"golang.design/x/clipboard"
+
+	"github.com/alecthomas/kong"
 )
 
 func main() {
-	dirname, err := parseInput()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		fmt.Println()
-		fmt.Println("Usage: disk-usage [PATH]")
-		os.Exit(1)
-	}
+	kong.Parse(&CLI)
 
-	if err = clipboard.Init(); err != nil {
+	if err := clipboard.Init(); err != nil {
 		log.Fatalf("failed to init clipboard: %v", err)
 	}
 
-	topLevel, err := getDirSize(dirname)
+	topLevel, err := getDirSize(CLI.Path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	app := newApplication(&topLevel)
+	repr := parseRepresentation(CLI.Representation)
+	app := newApplication(&topLevel, repr)
 
 	if err := app.Run(); err != nil {
 		panic(err)
 	}
 }
 
-func parseInput() (string, error) {
-	argc := len(os.Args)
-	switch argc {
-	case 1:
-		return ".", nil
-	case 2:
-		return os.Args[1], nil
+var CLI struct {
+	Path           string `arg:"" name:"path" help:"Path to analyse" type:"path" default:"."`
+	Representation string `short:"r" name:"representation" help:"Representation of sizes" enum:"bytes,iec,si" default:"iec"`
+}
+
+type Representation int
+
+const (
+	Bytes Representation = iota
+	IEC
+	SI
+)
+
+func parseRepresentation(representation string) Representation {
+	switch representation {
+	case "bytes":
+		return Bytes
+	case "iec":
+		return IEC
+	case "si":
+		return SI
 	default:
-		return "", fmt.Errorf("expected 0 or 1 arguments, got %d", argc)
+		// This should never happen
+		fmt.Printf("Unknown representation '%s'", representation)
+		os.Exit(1)
 	}
+	return Bytes // unreachable
 }
