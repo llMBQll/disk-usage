@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
 
 	"golang.design/x/clipboard"
@@ -31,27 +30,6 @@ func main() {
 
 	if err := app.Run(); err != nil {
 		panic(err)
-	}
-}
-
-func toHumanReadableSize(bytes uint64) string {
-	const step uint64 = 1024 // TODO handle both decimal and IEC suffixes
-	suffixes := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"}
-
-	index := 0
-	current := uint64(1)
-	for current*step < bytes {
-		current *= step
-		index += 1
-	}
-
-	if index == 0 {
-		return fmt.Sprintf("%d %s", bytes, suffixes[index])
-	} else {
-		whole := bytes / current
-		fractional := uint64(math.Floor(float64(bytes-whole*current) / float64(current) * 10))
-
-		return fmt.Sprintf("%d.%d %s", whole, fractional, suffixes[index])
 	}
 }
 
