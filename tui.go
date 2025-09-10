@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gdamore/tcell/v2"
@@ -17,6 +18,8 @@ var currentRoot *Entry = nil
 var currentIndex = 0
 var previousIndices []int = []int{}
 var toByteRepresentation func(uint64) string
+var notificationText = ""
+var timer *time.Timer = nil
 
 func newApplication(root *Entry, representation Representation) *tview.Application {
 	toByteRepresentation = makeToByteRepresentationFunc(representation)
@@ -32,9 +35,49 @@ func newApplication(root *Entry, representation Representation) *tview.Applicati
 		return event
 	})
 
+	setupNotificationBox(app)
+
 	setNewState(app, root, 0)
 
 	return app
+}
+
+func setupNotificationBox(app *tview.Application) {
+	timer = time.AfterFunc(2*time.Second, func() {
+		notificationText = ""
+		app.Draw()
+	})
+	// Stop immediately after creation so it doesn't go off without an actual notfication
+	timer.Stop()
+
+	app.SetAfterDrawFunc(func(screen tcell.Screen) {
+		if notificationText == "" {
+			return
+		}
+
+		width, height := screen.Size()
+		tview.Print(screen, notificationText, 1, height-2, width-2, tview.AlignCenter, tcell.ColorWhite)
+	})
+}
+
+func setNotification(app *tview.Application, text string) {
+	notificationText = text
+
+	if notificationText == "" {
+		wasRunning := timer.Stop()
+		if wasRunning {
+			// Redraw only if the timer hasn't expired - if expired then
+			// we already cleared the notification
+			go func() {
+				// Requesting a redraw is always safe from a goroutine
+				app.Draw()
+			}()
+		}
+		return
+	}
+
+	timer.Stop()
+	timer.Reset(2 * time.Second)
 }
 
 func createList(app *tview.Application, newRoot *Entry) *tview.List {
@@ -54,8 +97,10 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 		currentIndex = index
 
 		entry := &currentRoot.children[currentIndex]
-		if entry.err != nil {
-			// TODO show notification
+		if entry.err == nil {
+			setNotification(app, "")
+		} else {
+			setNotification(app, fmt.Sprintf("[red]%v", entry.err))
 		}
 	})
 
@@ -73,7 +118,7 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 			return nil
 		case tcell.KeyCtrlL:
 			clipboard.Write(clipboard.FmtText, []byte(currentRoot.fullName))
-			// TODO show notification
+			setNotification(app, fmt.Sprintf("[blue]Copied '%s' to clipboard", currentRoot.fullName))
 			return nil
 		}
 		return event
