@@ -17,13 +17,8 @@ func main() {
 		log.Fatalf("failed to init clipboard: %v", err)
 	}
 
-	topLevel, err := getDirSize(CLI.Path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	repr := parseRepresentation(CLI.Representation)
-	app := newApplication(&topLevel, repr)
+	app := newApplication(CLI.Path, repr, CLI.NotifyOnReady)
 
 	if err := app.Run(); err != nil {
 		panic(err)
@@ -33,6 +28,7 @@ func main() {
 var CLI struct {
 	Path           string `arg:"" name:"path" help:"Path to analyse" type:"path" default:"."`
 	Representation string `short:"r" name:"representation" help:"Representation of sizes" enum:"bytes,iec,si" default:"iec"`
+	NotifyOnReady  bool   `short:"n" name:"notify-ready" help:"Show a notification when all files are processed"`
 }
 
 type Representation int
