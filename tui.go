@@ -112,6 +112,10 @@ func createList(app *tview.Application, newRoot *filesystem.Entry) *tview.List {
 	}
 
 	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		if index >= len(currentRoot.Children) {
+			return
+		}
+
 		currentIndex = index
 
 		entry := currentRoot.Children[currentIndex]
