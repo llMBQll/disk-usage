@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -24,7 +23,7 @@ var toByteRepresentation func(uint64) string
 var notificationText = ""
 var timer *time.Timer = nil
 
-func newApplication(path string, representation Representation, notifyOnReady bool) *tview.Application {
+func newApplication(path string, representation Representation, notifyOnReady bool) (*tview.Application, error) {
 	toByteRepresentation = makeToByteRepresentationFunc(representation)
 
 	app := tview.NewApplication()
@@ -55,13 +54,12 @@ func newApplication(path string, representation Representation, notifyOnReady bo
 
 	root, err := filesystem.BuildFileTree(path, updates)
 	if err != nil {
-		// TODO error handling
-		os.Exit(1)
+		return nil, err
 	}
 
 	setNewState(app, root, 0)
 
-	return app
+	return app, nil
 }
 
 func setupNotificationBox(app *tview.Application) {

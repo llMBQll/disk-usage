@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -8,6 +9,15 @@ import (
 )
 
 func BuildFileTree(root string, c chan struct{}) (*Entry, error) {
+	stat, err := os.Stat(root)
+	if err != nil {
+		return nil, err
+	}
+
+	if !stat.IsDir() {
+		return nil, fmt.Errorf("'%s' is not a directory", root)
+	}
+
 	path, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err

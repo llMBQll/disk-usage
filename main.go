@@ -18,7 +18,11 @@ func main() {
 	}
 
 	repr := parseRepresentation(CLI.Representation)
-	app := newApplication(CLI.Path, repr, CLI.NotifyOnReady)
+	app, err := newApplication(CLI.Path, repr, CLI.NotifyOnReady)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 
 	if err := app.Run(); err != nil {
 		panic(err)
