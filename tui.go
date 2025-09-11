@@ -23,7 +23,6 @@ var previousIndices []int = []int{}
 var toByteRepresentation func(uint64) string
 var notificationText = ""
 var timer *time.Timer = nil
-var updates chan struct{}
 
 func newApplication(path string, representation Representation, notifyOnReady bool) *tview.Application {
 	toByteRepresentation = makeToByteRepresentationFunc(representation)
@@ -40,18 +39,17 @@ func newApplication(path string, representation Representation, notifyOnReady bo
 	})
 
 	setupNotificationBox(app)
-	updates = make(chan struct{})
+	updates := make(chan struct{})
 	go func() {
 		for range updates {
 			setNewState(app, currentRoot, currentIndex)
 			app.Draw()
 		}
-		setNewState(app, currentRoot, currentIndex)
 
+		setNewState(app, currentRoot, currentIndex)
 		if notifyOnReady {
 			setNotification(app, "Ready")
 		}
-
 		app.Draw()
 	}()
 
