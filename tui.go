@@ -8,20 +8,22 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"disk-usage/filesystem"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	"golang.design/x/clipboard"
 )
 
-var currentRoot *Entry = nil
+var currentRoot *filesystem.Entry = nil
 var currentIndex = 0
 var previousIndices []int = []int{}
 var toByteRepresentation func(uint64) string
 var notificationText = ""
 var timer *time.Timer = nil
 
-func newApplication(root *Entry, representation Representation) *tview.Application {
+func newApplication(path string, representation Representation, notifyOnReady bool) (*tview.Application, error) {
 	toByteRepresentation = makeToByteRepresentationFunc(representation)
 
 	app := tview.NewApplication()
@@ -36,10 +38,28 @@ func newApplication(root *Entry, representation Representation) *tview.Applicati
 	})
 
 	setupNotificationBox(app)
+	updates := make(chan struct{})
+	go func() {
+		for range updates {
+			setNewState(app, currentRoot, currentIndex)
+			app.Draw()
+		}
+
+		setNewState(app, currentRoot, currentIndex)
+		if notifyOnReady {
+			setNotification(app, "Ready")
+		}
+		app.Draw()
+	}()
+
+	root, err := filesystem.BuildFileTree(path, updates)
+	if err != nil {
+		return nil, err
+	}
 
 	setNewState(app, root, 0)
 
-	return app
+	return app, nil
 }
 
 func setupNotificationBox(app *tview.Application) {
@@ -68,10 +88,8 @@ func setNotification(app *tview.Application, text string) {
 		if wasRunning {
 			// Redraw only if the timer hasn't expired - if expired then
 			// we already cleared the notification
-			go func() {
-				// Requesting a redraw is always safe from a goroutine
-				app.Draw()
-			}()
+			// Requesting a redraw is always safe from a goroutine
+			go app.Draw()
 		}
 		return
 	}
@@ -80,27 +98,27 @@ func setNotification(app *tview.Application, text string) {
 	timer.Reset(2 * time.Second)
 }
 
-func createList(app *tview.Application, newRoot *Entry) *tview.List {
+func createList(app *tview.Application, newRoot *filesystem.Entry) *tview.List {
 	sortChildren(newRoot)
 
 	var fieldLength = 0
-	for _, entry := range newRoot.children {
-		fieldLength = max(fieldLength, utf8.RuneCountInString(entry.name))
+	for _, entry := range newRoot.Children {
+		fieldLength = max(fieldLength, utf8.RuneCountInString(entry.Name))
 	}
 
 	list := tview.NewList().ShowSecondaryText(false)
-	for _, entry := range newRoot.children {
-		addListEntry(list, &entry, fieldLength)
+	for _, entry := range newRoot.Children {
+		addListEntry(list, entry, fieldLength)
 	}
 
 	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		currentIndex = index
 
-		entry := &currentRoot.children[currentIndex]
-		if entry.err == nil {
+		entry := currentRoot.Children[currentIndex]
+		if entry.Err == nil {
 			setNotification(app, "")
 		} else {
-			setNotification(app, fmt.Sprintf("[red]%v", entry.err))
+			setNotification(app, fmt.Sprintf("[red]%v", entry.Err))
 		}
 	})
 
@@ -117,14 +135,14 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 			tryPushRoot(app, currentIndex)
 			return nil
 		case tcell.KeyCtrlL:
-			clipboard.Write(clipboard.FmtText, []byte(currentRoot.fullName))
-			setNotification(app, fmt.Sprintf("[blue]Copied '%s' to clipboard", currentRoot.fullName))
+			clipboard.Write(clipboard.FmtText, []byte(currentRoot.Path))
+			setNotification(app, fmt.Sprintf("[blue]Copied '%s' to clipboard", currentRoot.Path))
 			return nil
 		}
 		return event
 	})
 
-	title := fmt.Sprintf(" %s %s ", newRoot.fullName, toByteRepresentation(newRoot.size))
+	title := fmt.Sprintf(" %s %s ", newRoot.Path, toByteRepresentation(newRoot.Size))
 	draw := func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
 		help := ""
 		appendHelp := func(keys string, text string) {
@@ -147,32 +165,27 @@ func createList(app *tview.Application, newRoot *Entry) *tview.List {
 	return list
 }
 
-func sortChildren(parent *Entry) {
-	if parent.childrenSorted {
-		return
-	}
-
-	slices.SortFunc(parent.children, func(lhs Entry, rhs Entry) int {
-		if lhs.size < rhs.size {
+func sortChildren(parent *filesystem.Entry) {
+	slices.SortFunc(parent.Children, func(lhs *filesystem.Entry, rhs *filesystem.Entry) int {
+		if lhs.Size < rhs.Size {
 			return 1
-		} else if lhs.size == rhs.size {
-			if lhs.err != nil && rhs.err == nil {
+		} else if lhs.Size == rhs.Size {
+			if lhs.Err != nil && rhs.Err == nil {
 				return 1
-			} else if lhs.err == nil && rhs.err != nil {
+			} else if lhs.Err == nil && rhs.Err != nil {
 				return -1
 			}
-			return strings.Compare(lhs.name, rhs.name)
+			return strings.Compare(lhs.Name, rhs.Name)
 		} else {
 			return -1
 		}
 	})
-	parent.childrenSorted = true
 }
 
-func addListEntry(list *tview.List, entry *Entry, fieldLenght int) {
-	nameLen := utf8.RuneCountInString(entry.name)
-	padding := strings.Repeat(" ", fieldLenght-nameLen)
-	size := toByteRepresentation(entry.size)
+func addListEntry(list *tview.List, entry *filesystem.Entry, fieldLenght int) {
+	nameLen := utf8.RuneCountInString(entry.Name)
+	padding := strings.Repeat(" ", max(fieldLenght-nameLen, 0))
+	size := toByteRepresentation(entry.Size)
 
 	pushForeground := ""
 	popForeground := ""
@@ -181,12 +194,12 @@ func addListEntry(list *tview.List, entry *Entry, fieldLenght int) {
 	pushAttributes := "b"
 	popAttributes := "B"
 
-	if entry.err != nil {
+	if entry.Err != nil {
 		pushForeground = "red"
 		popForeground = "white"
 	}
 
-	if entry.isDirectory {
+	if entry.IsDirectory {
 		pushAttributes += "u"
 		popAttributes += "U"
 	}
@@ -194,27 +207,27 @@ func addListEntry(list *tview.List, entry *Entry, fieldLenght int) {
 	pushFormat := fmt.Sprintf("[%s:%s:%s]", pushForeground, pushBackground, pushAttributes)
 	popFormat := fmt.Sprintf("[%s:%s:%s]", popForeground, popBackground, popAttributes)
 
-	text := fmt.Sprintf("%s%s%s%s %s", pushFormat, entry.name, popFormat, padding, size)
+	text := fmt.Sprintf("%s%s%s%s %s", pushFormat, entry.Name, popFormat, padding, size)
 
 	list.AddItem(text, size, 0, nil)
 }
 
 func tryPushRoot(app *tview.Application, index int) {
-	if index >= len(currentRoot.children) {
+	if index >= len(currentRoot.Children) {
 		return
 	}
 
-	if !currentRoot.children[index].isDirectory {
+	if !currentRoot.Children[index].IsDirectory {
 		return
 	}
 
 	previousIndices = append(previousIndices, index)
-	newRoot := &currentRoot.children[index]
+	newRoot := currentRoot.Children[index]
 	setNewState(app, newRoot, 0)
 }
 
 func tryPopRoot(app *tview.Application) {
-	newRoot := currentRoot.parent
+	newRoot := currentRoot.Parent
 	if newRoot == nil {
 		return
 	}
@@ -224,13 +237,13 @@ func tryPopRoot(app *tview.Application) {
 	setNewState(app, newRoot, index)
 }
 
-func setNewState(app *tview.Application, newRoot *Entry, newIndex int) {
+func setNewState(app *tview.Application, newRoot *filesystem.Entry, newIndex int) {
 	currentRoot = newRoot
 	currentIndex = 0
 
 	list := createList(app, newRoot)
 	app.SetRoot(list, true)
-	if len(newRoot.children) > newIndex {
+	if len(newRoot.Children) > newIndex {
 		list.SetCurrentItem(newIndex)
 		currentIndex = newIndex
 	}
