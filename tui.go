@@ -138,10 +138,13 @@ func createList(app *tview.Application, newRoot *filesystem.Entry) *tview.List {
 		case tcell.KeyEnter:
 			tryPushRoot(app, currentIndex)
 			return nil
-		case tcell.KeyCtrlL:
-			clipboard.Write(clipboard.FmtText, []byte(currentRoot.Path))
-			setNotification(app, fmt.Sprintf("[blue]Copied '%s' to clipboard", currentRoot.Path))
-			return nil
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'p':
+				clipboard.Write(clipboard.FmtText, []byte(currentRoot.Path))
+				setNotification(app, fmt.Sprintf("[blue]Copied '%s' to clipboard", currentRoot.Path))
+				return nil
+			}
 		}
 		return event
 	})
@@ -157,7 +160,7 @@ func createList(app *tview.Application, newRoot *filesystem.Entry) *tview.List {
 		appendHelp("↑/↓", "Select file")
 		appendHelp("→/Enter", "Enter directory")
 		appendHelp("←/Escape", "Exit directory")
-		appendHelp("Ctrl-l", "Copy Current Path to Clipboard")
+		appendHelp("p", "Copy current path to clipboard")
 
 		tview.Print(screen, help, x+1, y+height-1, width-2, tview.AlignLeft, tcell.ColorWhite)
 
